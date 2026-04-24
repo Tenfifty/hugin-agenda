@@ -1,0 +1,57 @@
+# ~/.config/hugin/hugin.yaml  (shared across all hugin-* tools)
+# ----------------------------------------------------------------
+language: en                       # "en" or "sv" — used for GTD weekday headings
+user_name: "Your Name"
+vault_path: ~/Documents/notes
+
+# Google Workspace CLI (shared with hugin-meetings)
+gws_bin: gws
+# gws_config_dir: ~/.config/gws
+
+# Daily journal file (shared with hugin-meetings). Used by
+# hugin-agenda-rotate-journal and by the meetings recorder's tray menu.
+# journal_path: ~/Documents/notes/journal/journal.md
+
+
+# ~/.config/hugin/agenda.yaml  (agenda-specific)
+# ----------------------------------------------------------------
+agenda:
+  # Agenda templates. Defaults to English templates shipped with the package.
+  # Point at your own dir to use custom templates (e.g. Swedish, personal).
+  # templates_dir: ~/Documents/notes/agenda_templates
+
+  # Weekday index (0=Mon..6=Sun) -> template name. The resolved file is
+  # <templates_dir>/agenda_<name>.md.
+  template_map:
+    0: weekday
+    1: weekday
+    2: weekday
+    3: weekday
+    4: weekday
+    5: weekend
+    6: weekend
+
+  # GTD file with weekly tasks. Expected structure:
+  #   ## Week
+  #   ### Monday
+  #   - [ ] task
+  #       - [ ] subitem  (each subitem adds a 30m slot)
+  # gtd_path: ~/Documents/notes/gtd.md
+
+  # Google Calendar id to read (default "primary")
+  calendar_id: primary
+
+  # Scheduling: 30-minute slots starting at 09:00 by default
+  task_slot_minutes: 30
+  day_start_hour: 9
+
+  # Override weekday names used to find the right day in gtd.md. By default
+  # they come from the shared `language` field (en/sv supported out of box).
+  # weekday_names:
+  #   - Monday
+  #   - Tuesday
+  #   - Wednesday
+  #   - Thursday
+  #   - Friday
+  #   - Saturday
+  #   - Sunday
