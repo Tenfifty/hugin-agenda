@@ -1,8 +1,8 @@
-"""Rotate the daily journal file at year boundaries.
+"""Rotate the live journal file into a dated archive.
 
-Archives journal.md to journal_<year>.md, removes that year's entries from the
-live file, and updates the year heading. Defaults to the live `journal_path`
-configured in hugin.yaml / agenda.yaml.
+Archives journal.md to arkiv/journal_yymmdd-yymmdd.md, using the inclusive
+date range of the journal entries. Defaults to the live
+`journal_path` configured in hugin.yaml / agenda.yaml.
 """
 from __future__ import annotations
 
@@ -10,7 +10,9 @@ import argparse
 import datetime as dt
 import re
 import sys
+import webbrowser
 from pathlib import Path
+from urllib.parse import urlencode
 
 from .config import load_config
 
@@ -18,8 +20,8 @@ from .config import load_config
 def _parse_args(default_journal: Path | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Archive journal.md to journal_<year>.md, remove that year's entries, "
-            "and update the year heading."
+            "Archive journal.md to arkiv/journal_yymmdd-yymmdd.md, based on "
+            "the earliest and latest dated entries."
         )
     )
     parser.add_argument(
@@ -31,15 +33,12 @@ def _parse_args(default_journal: Path | None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--year",
-        type=int,
-        default=None,
-        help="Year to archive/remove (default: current year - 1)",
-    )
-    parser.add_argument(
         "--archive",
         default=None,
-        help="Archive file path (default: journal_<year>.md in same dir)",
+        help=(
+            "Archive file path "
+            "(default: arkiv/journal_yymmdd-yymmdd.md next to journal.md)"
+        ),
     )
     parser.add_argument(
         "--force",
@@ -51,63 +50,38 @@ def _parse_args(default_journal: Path | None) -> argparse.Namespace:
         action="store_true",
         help="Show actions without writing files",
     )
+    parser.add_argument(
+        "--open-archive",
+        action="store_true",
+        help="Open the archive in Obsidian after rotating",
+    )
     return parser.parse_args()
 
 
-def _remove_year_entries(
-    lines: list[str], year: int, start_from_heading: bool = True
-) -> tuple[list[str], int]:
-    date_re = re.compile(rf"^##\s+<?{year}-")
-    new_lines: list[str] = []
-    removed_entries = 0
-    in_skip = False
-    in_logg = not start_from_heading
-    year_heading_re = re.compile(rf"^#\s+{year}\s*$")
-
-    for line in lines:
-        if start_from_heading and not in_logg:
-            new_lines.append(line)
-            if year_heading_re.match(line):
-                in_logg = True
-            continue
-
-        if in_skip:
-            if line.startswith("## "):
-                if date_re.match(line):
-                    removed_entries += 1
-                    continue
-                in_skip = False
-                new_lines.append(line)
-            continue
-
-        if date_re.match(line):
-            in_skip = True
-            removed_entries += 1
-            continue
-
-        new_lines.append(line)
-
-    return new_lines, removed_entries
+ENTRY_DATE_RE = re.compile(r"^##\s+<?(\d{4}-\d{2}-\d{2})(?:\b|[> ])")
 
 
-def _update_year_heading(lines: list[str], old_year: int, new_year: int) -> bool:
-    heading_re = re.compile(rf"^#\s+{old_year}\s*$")
-    for idx, line in enumerate(lines):
-        if heading_re.match(line):
-            lines[idx] = f"# {new_year}\n" if line.endswith("\n") else f"# {new_year}"
-            return True
-    return False
+def _entry_dates(text: str) -> list[str]:
+    return [
+        match.group(1)
+        for line in text.splitlines()
+        if (match := ENTRY_DATE_RE.match(line))
+    ]
 
 
-def _update_journal_heading(lines: list[str], old_year: int, new_year: int) -> bool:
-    journal_re = re.compile(rf"^#\s+Journal\s+{old_year}\s*$")
-    for idx, line in enumerate(lines):
-        if journal_re.match(line):
-            lines[idx] = (
-                f"# Journal {new_year}\n" if line.endswith("\n") else f"# Journal {new_year}"
-            )
-            return True
-    return False
+def _default_archive_path(journal_path: Path, start_date: str, end_date: str) -> Path:
+    start = start_date[2:].replace("-", "")
+    end = end_date[2:].replace("-", "")
+    return journal_path.parent / "arkiv" / f"journal_{start}-{end}.md"
+
+
+def _fresh_journal_text(year: int) -> str:
+    return f"# Journal {year}\n\n"
+
+
+def _obsidian_open_uri(path: Path, pane_type: str = "tab") -> str:
+    query = urlencode({"path": str(path.resolve()), "paneType": pane_type})
+    return f"obsidian://open?{query}"
 
 
 def main() -> int:
@@ -126,41 +100,52 @@ def main() -> int:
         print(f"Journal not found: {journal_path}", file=sys.stderr)
         return 2
 
-    current_year = dt.date.today().year
-    target_year = args.year if args.year is not None else current_year - 1
+    text = journal_path.read_text(encoding="utf-8")
+    dates = _entry_dates(text)
+    if not dates:
+        print(
+            "No journal entries found. Expected dated headings like "
+            "'## 2026-05-04' or '## <2026-05-04 ...>'.",
+            file=sys.stderr,
+        )
+        return 4
+
+    start_date = min(dates)
+    end_date = max(dates)
     archive_path = (
         Path(args.archive).expanduser()
         if args.archive
-        else journal_path.with_name(f"journal_{target_year}.md")
+        else _default_archive_path(journal_path, start_date, end_date)
     )
 
-    text = journal_path.read_text(encoding="utf-8")
     if archive_path.exists() and not args.force:
         print(f"Archive already exists: {archive_path}", file=sys.stderr)
         return 3
 
-    lines = text.splitlines(keepends=True)
-    new_lines, removed_entries = _remove_year_entries(lines, target_year)
-    journal_heading_updated = _update_journal_heading(
-        new_lines, target_year, current_year
-    )
-    year_heading_updated = _update_year_heading(new_lines, target_year, current_year)
-
     if args.dry_run:
         print(f"[dry-run] Archive: {archive_path}")
-        print(f"[dry-run] Remove entries for year: {target_year}")
-        print(f"[dry-run] Removed entries: {removed_entries}")
-        print(f"[dry-run] Journal heading updated: {journal_heading_updated}")
-        print(f"[dry-run] Year heading updated: {year_heading_updated}")
+        print(f"[dry-run] Date range: {start_date} to {end_date}")
+        print(f"[dry-run] Entries: {len(dates)}")
+        print(f"[dry-run] Reset journal: {journal_path}")
+        print(f"[dry-run] New journal heading: # Journal {dt.date.today().year}")
+        if args.open_archive:
+            print(f"[dry-run] Open archive URI: {_obsidian_open_uri(archive_path)}")
         return 0
 
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
     archive_path.write_text(text, encoding="utf-8")
-    journal_path.write_text("".join(new_lines), encoding="utf-8")
+    journal_path.write_text(_fresh_journal_text(dt.date.today().year), encoding="utf-8")
 
     print(f"Archived to: {archive_path}")
-    print(f"Removed entries for year: {target_year} ({removed_entries} entries)")
-    print(f"Journal heading updated: {journal_heading_updated}")
-    print(f"Year heading updated: {year_heading_updated}")
+    print(f"Entry dates: {start_date} to {end_date} ({len(dates)} entries)")
+    print(f"Reset journal: {journal_path}")
+    if args.open_archive:
+        archive_uri = _obsidian_open_uri(archive_path)
+        if webbrowser.open(archive_uri):
+            print(f"Opened archive in Obsidian: {archive_uri}")
+        else:
+            print(f"Could not open archive in Obsidian: {archive_uri}", file=sys.stderr)
+            return 5
     return 0
 
 

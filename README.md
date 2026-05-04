@@ -40,16 +40,32 @@ hugin-agenda --date 2026-05-01
 hugin-agenda --template weekend    # force a specific template
 ```
 
-### Rotate the journal at year boundaries
+### Rotate the journal
 
 ```bash
 hugin-agenda-rotate-journal --dry-run
-hugin-agenda-rotate-journal            # archives last year's entries
-hugin-agenda-rotate-journal --year 2024 --force
+hugin-agenda-rotate-journal
+hugin-agenda-rotate-journal --open-archive
+hugin-agenda-rotate-journal --force
 ```
 
-Reads `journal_path` from shared config. Archives to `journal_<year>.md` in
-the same directory.
+Reads `journal_path` from shared config. Archives the current `journal.md` to
+`arkiv/journal_yymmdd-yymmdd.md`, using the inclusive range from the earliest
+to latest dated entry, then resets `journal.md` to `# Journal YYYY`.
+Pass `--open-archive` to open the new archive in Obsidian.
+
+For Obsidian, `--open-archive` is useful from a Templater or shell-command
+shortcut. A Templater template can run the command without inserting output:
+
+```md
+<%* await tp.user.RotateJournal() %>
+```
+
+Configure `RotateJournal` as a Templater system command, for example:
+
+```bash
+hugin-agenda-rotate-journal --open-archive
+```
 
 ## Templates
 
