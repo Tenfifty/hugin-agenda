@@ -1,8 +1,9 @@
 """Rotate the live journal file into a dated archive.
 
-Archives journal.md to arkiv/journal_yymmdd-yymmdd.md, using the inclusive
-date range of the journal entries. Defaults to the live
-`journal_path` configured in hugin.yaml / agenda.yaml.
+Archives journal.md to <archive_dirname>/journal_yymmdd-yymmdd.md, using
+the inclusive date range of the journal entries. ``archive_dirname``
+defaults to "archive" (en) / "arkiv" (sv); both come from the shared
+hugin config. ``journal_path`` is read from the same config.
 """
 from __future__ import annotations
 
@@ -17,11 +18,11 @@ from urllib.parse import urlencode
 from .config import load_config
 
 
-def _parse_args(default_journal: Path | None) -> argparse.Namespace:
+def _parse_args(default_journal: Path | None, archive_dirname: str) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Archive journal.md to arkiv/journal_yymmdd-yymmdd.md, based on "
-            "the earliest and latest dated entries."
+            f"Archive journal.md to {archive_dirname}/journal_yymmdd-yymmdd.md, "
+            "based on the earliest and latest dated entries."
         )
     )
     parser.add_argument(
@@ -37,7 +38,7 @@ def _parse_args(default_journal: Path | None) -> argparse.Namespace:
         default=None,
         help=(
             "Archive file path "
-            "(default: arkiv/journal_yymmdd-yymmdd.md next to journal.md)"
+            f"(default: {archive_dirname}/journal_yymmdd-yymmdd.md next to journal.md)"
         ),
     )
     parser.add_argument(
@@ -69,10 +70,12 @@ def _entry_dates(text: str) -> list[str]:
     ]
 
 
-def _default_archive_path(journal_path: Path, start_date: str, end_date: str) -> Path:
+def _default_archive_path(
+    journal_path: Path, start_date: str, end_date: str, archive_dirname: str
+) -> Path:
     start = start_date[2:].replace("-", "")
     end = end_date[2:].replace("-", "")
-    return journal_path.parent / "arkiv" / f"journal_{start}-{end}.md"
+    return journal_path.parent / archive_dirname / f"journal_{start}-{end}.md"
 
 
 def _fresh_journal_text(year: int) -> str:
@@ -86,7 +89,7 @@ def _obsidian_open_uri(path: Path, pane_type: str = "tab") -> str:
 
 def main() -> int:
     cfg = load_config()
-    args = _parse_args(cfg.journal_path)
+    args = _parse_args(cfg.journal_path, cfg.archive_dirname)
     if not args.journal:
         print(
             "No journal path provided. Pass --journal or set journal_path in "
@@ -115,7 +118,7 @@ def main() -> int:
     archive_path = (
         Path(args.archive).expanduser()
         if args.archive
-        else _default_archive_path(journal_path, start_date, end_date)
+        else _default_archive_path(journal_path, start_date, end_date, cfg.archive_dirname)
     )
 
     if archive_path.exists() and not args.force:

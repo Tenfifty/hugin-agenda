@@ -1,20 +1,10 @@
-# ~/.config/hugin/hugin.yaml  (shared across all hugin-* tools)
-# ----------------------------------------------------------------
-language: en                       # "en" or "sv" — used for GTD weekday headings
-user_name: "Your Name"
-vault_path: ~/Documents/notes
-
-# Google Workspace CLI (shared with hugin-meetings)
-gws_bin: gws
-# gws_config_dir: ~/.config/gws
-
-# Daily journal file (shared with hugin-meetings). Used by
-# hugin-agenda-rotate-journal and by the meetings recorder's tray menu.
-# journal_path: ~/Documents/notes/journal/journal.md
-
-
 # ~/.config/hugin/agenda.yaml  (agenda-specific)
 # ----------------------------------------------------------------
+# Shared fields (language, vault_path, journal_path, gws_bin,
+# archive_dirname, ...) live in ~/.config/hugin/hugin.yaml — see the
+# `hugin` package for the canonical example. Run `hugin-init` to
+# scaffold both files.
+
 agenda:
   # Agenda templates. Defaults to English templates shipped with the package.
   # Point at your own dir to use custom templates (e.g. Swedish, personal).

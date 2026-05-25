@@ -1,13 +1,12 @@
 # hugin-agenda
 
 Generate a daily agenda Markdown file from your Google Calendar and a GTD
-file. Part of the [Hugin](https://github.com/) personal productivity stack.
+file. Part of the [Hugin](https://github.com/Tenfifty/hugin) personal productivity stack.
 
 Given a date, hugin-agenda:
 
 1. Picks an agenda template based on the weekday (or `--template <name>`).
-2. Fetches calendar events via the [Google Workspace CLI](https://github.com/)
-   (`gws`).
+2. Fetches calendar events via the Google Workspace CLI (`gws`).
 3. Parses the current week's GTD tasks for that weekday.
 4. Schedules the GTD tasks around the events in 30-minute slots.
 5. Prints the resulting Markdown to stdout — ready to paste into your vault.
@@ -22,14 +21,16 @@ Requires Python 3.10+ and the `gws` CLI on PATH (or `gws_bin` set in config).
 
 ## Configure
 
-Two YAML files at `~/.config/hugin/` (override the directory with
-`HUGIN_CONFIG_DIR`):
+Run `hugin-init` (shipped with the `hugin` shared library) to scaffold
+`~/.config/hugin/hugin.yaml` and a vault layout. Then copy
+`config.example.yaml` into `~/.config/hugin/agenda.yaml` for the
+agenda-specific bits.
 
-- `hugin.yaml` — shared across all hugin-* tools (language, vault, gws, journal).
-- `agenda.yaml` — agenda-specific (templates, GTD path, calendar id).
+- `hugin.yaml` — shared across all hugin-* tools (language, vault, gws, journal)
+- `agenda.yaml` — agenda-specific (templates, GTD path, calendar id)
 
-See [`config.example.yaml`](config.example.yaml). The tool-specific file
-overrides the shared file; values are deep-merged.
+The tool-specific file overrides the shared file; values are deep-merged.
+Override the config dir with `HUGIN_CONFIG_DIR=/path`.
 
 ## Use
 
@@ -50,7 +51,8 @@ hugin-agenda-rotate-journal --force
 ```
 
 Reads `journal_path` from shared config. Archives the current `journal.md` to
-`arkiv/journal_yymmdd-yymmdd.md`, using the inclusive range from the earliest
+`<archive_dirname>/journal_yymmdd-yymmdd.md` (defaults to `archive/` for
+`language: en`, `arkiv/` for `sv`), using the inclusive range from the earliest
 to latest dated entry, then resets `journal.md` to `# Journal YYYY`.
 Pass `--open-archive` to open the new archive in Obsidian.
 
