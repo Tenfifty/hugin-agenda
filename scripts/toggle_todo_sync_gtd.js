@@ -1,10 +1,15 @@
 const { promisify } = require("util");
 const { execFile } = require("child_process");
+const os = require("os");
+const path = require("path");
 const execFileAsync = promisify(execFile);
 
-const SYNC =
-  process.env.HUGIN_AGENDA_SYNC_GTD_CHECKBOX ||
-  "hugin-agenda-sync-gtd-checkbox";
+const SYNC_CANDIDATES = process.env.HUGIN_AGENDA_SYNC_GTD_CHECKBOX
+  ? [process.env.HUGIN_AGENDA_SYNC_GTD_CHECKBOX]
+  : [
+      "hugin-agenda-sync-gtd-checkbox",
+      path.join(os.homedir(), ".local/bin/hugin-agenda-sync-gtd-checkbox"),
+    ];
 const JOURNAL_PATH = "journal/journal.md";
 
 function notify(message) {
@@ -13,6 +18,19 @@ function notify(message) {
   } else {
     console.warn(message);
   }
+}
+
+async function syncLine(line) {
+  let lastError;
+  for (const command of SYNC_CANDIDATES) {
+    try {
+      return await execFileAsync(command, ["--line", line]);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 module.exports = async ({ app }) => {
@@ -28,7 +46,7 @@ module.exports = async ({ app }) => {
   if (!/^\s*-\s+\[[ xX]\]\s+/.test(line)) return;
 
   try {
-    const { stderr } = await execFileAsync(SYNC, ["--line", line]);
+    const { stderr } = await syncLine(line);
     if (stderr?.trim()) notify(stderr.trim());
   } catch (error) {
     const message = error.stderr?.trim() || error.message || String(error);
