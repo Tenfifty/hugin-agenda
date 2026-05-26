@@ -15,11 +15,11 @@ EXCLUDED = {"Additions", "Removals", "Tillägg", "Borttagningar"}
 
 class CheckboxLineTests(unittest.TestCase):
     def test_parses_checked_line_ignoring_indent(self) -> None:
-        parsed = parse_checkbox_line("\t- [x] Spegla GTD-checks")
+        parsed = parse_checkbox_line("\t- [x] Sync GTD checkbox")
         self.assertIsNotNone(parsed)
         assert parsed is not None
         self.assertTrue(parsed.checked)
-        self.assertEqual(parsed.text, "Spegla GTD-checks")
+        self.assertEqual(parsed.text, "Sync GTD checkbox")
 
     def test_non_checkbox_returns_none(self) -> None:
         self.assertIsNone(parse_checkbox_line("- not a checkbox"))
@@ -37,25 +37,25 @@ class SyncGtdCheckboxTests(unittest.TestCase):
             """\
 ## Vecka
 ### Tisdag
-- [ ] Agendahugin
-\t- [ ] Spegla GTD-checks
+- [ ] Agenda tool
+\t- [ ] Sync GTD checkbox
 """
         )
 
         result = sync_gtd_checkbox_line(
-            path, "\t- [x] Spegla GTD-checks", EXCLUDED
+            path, "\t- [x] Sync GTD checkbox", EXCLUDED
         )
 
         self.assertEqual(result.status, "updated")
-        self.assertIn("\t- [x] Spegla GTD-checks", path.read_text(encoding="utf-8"))
+        self.assertIn("\t- [x] Sync GTD checkbox", path.read_text(encoding="utf-8"))
 
     def test_unchecks_matching_line(self) -> None:
-        path = self._write_gtd("- [x] Svara Victor\n")
+        path = self._write_gtd("- [x] Reply to Alex\n")
 
-        result = sync_gtd_checkbox_line(path, "- [ ] Svara Victor", EXCLUDED)
+        result = sync_gtd_checkbox_line(path, "- [ ] Reply to Alex", EXCLUDED)
 
         self.assertEqual(result.status, "updated")
-        self.assertEqual(path.read_text(encoding="utf-8"), "- [ ] Svara Victor\n")
+        self.assertEqual(path.read_text(encoding="utf-8"), "- [ ] Reply to Alex\n")
 
     def test_ignores_date_rule_overlay_sections(self) -> None:
         path = self._write_gtd(

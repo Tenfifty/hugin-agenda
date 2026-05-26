@@ -286,7 +286,7 @@ class RenderIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             (tmp_path / "agenda_base.md").write_text(
-                "## YYYY-MM-DD\n### Agenda\n- [ ] Stretch\n- [ ] Agenda 2\n",
+                "## YYYY-MM-DD\n### Agenda\n- [ ] Template item\n- [ ] Agenda 2\n",
                 encoding="utf-8",
             )
             cfg = AgendaConfig.from_merged({"language": "en"})
@@ -294,7 +294,7 @@ class RenderIntegrationTests(unittest.TestCase):
 
             tasks = [GtdTaskBlock(lines=["- [ ] Weekly task"], duration_slots=1)]
             extra = [GtdTaskBlock(lines=["- [ ] Dentist"], duration_slots=1)]
-            rems = [Removal("Stretch", parse_rule("2026-06-17"))]
+            rems = [Removal("Template item", parse_rule("2026-06-17"))]
 
             out = render_agenda(
                 cfg=cfg,
@@ -306,7 +306,7 @@ class RenderIntegrationTests(unittest.TestCase):
             )
             self.assertIn("Weekly task", out)
             self.assertIn("Dentist", out)
-            self.assertNotIn("Stretch", out)
+            self.assertNotIn("Template item", out)
 
 
 class InsertionMarkerTests(unittest.TestCase):
@@ -318,7 +318,7 @@ class InsertionMarkerTests(unittest.TestCase):
             ":-) ",
             "",                # blank between header text — NOT the marker
             "### Agenda",
-            "- [ ] Stretch",
+            "- [ ] Template item",
             "",                # marker: blank after list item
             "- [ ] Städa",
             "- [ ] Agenda 2",
@@ -331,7 +331,7 @@ class InsertionMarkerTests(unittest.TestCase):
         lines = [
             "## Date",
             "### Agenda",
-            "- [ ] Stretch",
+            "- [ ] Template item",
             "- [ ] Agenda 2",
         ]
         self.assertEqual(find_agenda_insertion_index(lines), 4)

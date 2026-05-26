@@ -14,7 +14,7 @@ touching anything that crosses tool boundaries.
 - `src/hugin_agenda/config.py` — `AgendaConfig` subclasses `hugin.SharedConfig`
 - `src/hugin_agenda/agenda.py` — calendar fetch, GTD parsing, scheduling, template rendering
 - `src/hugin_agenda/rotate_journal.py` — `hugin-agenda-rotate-journal` CLI; writes archives under `<archive_dirname>/`
-- `src/hugin_agenda/templates/` — packaged `agenda_weekday.md` / `agenda_weekend.md`
+- `src/hugin_agenda/templates/` — packaged `agenda_base.md`
 
 ## Tests
 
@@ -24,7 +24,7 @@ pytest tests/test_config.py
 ```
 
 Tests require `hugin` and `hugin-agenda` editable-installed
-(`pip install -e ~/projs/hugin -e .`). They run against synthetic
+(`pip install -e ../hugin -e .`). They run against synthetic
 config dicts via `AgendaConfig.from_merged` rather than reading
 `~/.config/hugin/`.
 
@@ -36,7 +36,7 @@ hugin-init                     # scaffolds the shared config + vault
 ```
 
 The `--break-system-packages` flag is required on PEP 668 systems
-(Ubuntu/Debian) and matches how `hugin-meetings` is installed.
+(Ubuntu/Debian).
 
 ## Status
 

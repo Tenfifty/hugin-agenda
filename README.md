@@ -16,14 +16,15 @@ Given a date, hugin-agenda:
 ## Install
 
 ```bash
-pip install -e . --break-system-packages
+pip install -e ../hugin -e . --break-system-packages
 ```
 
-Requires Python 3.10+ and the `gws` CLI on PATH (or `gws_bin` set in config).
+Requires Python 3.10+, the shared `hugin` package, and the `gws` CLI on PATH
+(or top-level `gws_bin` set in config).
 
 ## Configure
 
-Run `hugin-init` (shipped with the `hugin` shared library) to scaffold
+Run `hugin-init` (shipped with the shared `hugin` package) to scaffold
 `~/.config/hugin/hugin.yaml` and a vault layout. Then copy
 `config.example.yaml` into `~/.config/hugin/agenda.yaml` for the
 agenda-specific bits.
@@ -74,7 +75,7 @@ hugin-agenda-rotate-journal --open-archive
 ### Sync checked journal todos back to GTD
 
 ```bash
-hugin-agenda-sync-gtd-checkbox --line "- [x] Spegla GTD-checks"
+hugin-agenda-sync-gtd-checkbox --line "- [x] Follow up on agenda draft"
 ```
 
 The command reads `agenda.gtd_path`, finds the single matching checkbox line

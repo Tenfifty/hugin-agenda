@@ -2,10 +2,7 @@
 :-) 
 
 ### Agenda
-- [ ] Stretch
+- [ ] Review inbox, 20m
 
-- [ ] Tidy, 20m
-- [ ] Exercise
-- [ ] Meditate
+- [ ] Plan tomorrow
 - [ ] Agenda 2
-

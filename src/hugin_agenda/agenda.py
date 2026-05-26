@@ -127,7 +127,7 @@ def resolve_gws_bin(cfg: AgendaConfig) -> str:
         return preferred
     raise FileNotFoundError(
         f"gws binary {preferred!r} not found on PATH. "
-        "Install the Google Workspace CLI or set agenda.gws_bin / HUGIN_GWS_BIN."
+        "Install the Google Workspace CLI or set gws_bin / HUGIN_GWS_BIN."
     )
 
 
