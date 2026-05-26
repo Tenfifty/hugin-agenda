@@ -71,6 +71,26 @@ Configure `RotateJournal` as a Templater system command, for example:
 hugin-agenda-rotate-journal --open-archive
 ```
 
+### Sync checked journal todos back to GTD
+
+```bash
+hugin-agenda-sync-gtd-checkbox --line "- [x] Spegla GTD-checks"
+```
+
+The command reads `agenda.gtd_path`, finds the single matching checkbox line
+outside the date-rule overlay sections (`## Additions` / `## Removals`, or
+Swedish equivalents), and updates only its checkbox marker. Matching ignores
+leading whitespace and the previous checkbox state, so journal subitems can
+sync back to indented GTD subitems.
+
+For Obsidian, `scripts/toggle_todo_sync_gtd.js` can be used as a QuickAdd user
+script. Bind that QuickAdd choice to `Ctrl+Shift+Enter` in place of
+Obsidian's built-in checklist toggle; it runs the normal toggle first, then
+syncs when the active file is `journal/journal.md`.
+If Obsidian was launched from a desktop environment and cannot find the command,
+set `HUGIN_AGENDA_SYNC_GTD_CHECKBOX` to the full script path, or change the
+`SYNC` constant in your vault copy.
+
 ## Templates
 
 A single base template ships at `src/hugin_agenda/templates/agenda_base.md`.
