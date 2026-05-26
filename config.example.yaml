@@ -28,6 +28,31 @@ agenda:
   task_slot_minutes: 30
   day_start_hour: 8
 
+  # GTD-line research agent (hugin-agenda-research). A QuickAdd hotkey hands a
+  # task line to a background LLM that does prep work into a sidecar note and
+  # links it back from the GTD line. See scripts/research_line.js.
+  #
+  # The provider/binary come from the shared `llm:` section in hugin.yaml
+  # (default provider: codex). The agent runs `codex exec` in the vault root
+  # with -s workspace-write, so it can read vault files and write the sidecar.
+  #
+  # Sidecar folder. Defaults to "gtd-research" next to gtd.md so wikilinks
+  # resolve inside the vault.
+  # research_dir: ~/Documents/hugin/memory/gtd-research
+  #
+  # Reasoning effort, passed to codex as model_reasoning_effort. One of:
+  # none | minimal | low | medium | high | xhigh. Default high. (xhigh needs a
+  # model that supports it; other providers ignore effort entirely.)
+  # research_effort: high
+  #
+  # Allow the agent to reach the network (web research). Sets
+  # sandbox_workspace_write.network_access=true. Default true.
+  # research_network: true
+  #
+  # Prompt template (defaults to the packaged Swedish research_prompt.md).
+  # Placeholders: {sidecar_path} {vault_root} {user_name} {language} {date}
+  # research_prompt_template: ~/Documents/hugin/memory/templates/research_prompt.md
+
   # Override weekday names used to find the right day in gtd.md. By default
   # they come from the shared `language` field (en/sv supported out of box).
   # weekday_names:

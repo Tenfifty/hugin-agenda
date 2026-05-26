@@ -18,6 +18,7 @@ dependencies = [
 hugin-agenda = "hugin_agenda.agenda:main"
 hugin-agenda-rotate-journal = "hugin_agenda.rotate_journal:main"
 hugin-agenda-sync-gtd-checkbox = "hugin_agenda.sync_gtd_checkbox:main"
+hugin-agenda-research = "hugin_agenda.research:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

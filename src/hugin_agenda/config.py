@@ -7,7 +7,7 @@ Reads ~/.config/hugin/hugin.yaml + ~/.config/hugin/agenda.yaml via
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -45,6 +45,15 @@ class AgendaConfig(SharedConfig):
     task_slot_minutes: int = 30
     day_start_hour: int = 9
 
+    # GTD-line research agent (hugin-agenda-research). research_dir defaults to
+    # a "gtd-research" folder next to gtd.md so wikilinks resolve inside the
+    # vault. The provider/binary come from the shared `llm:` config; effort is
+    # passed to codex as model_reasoning_effort (low | medium | high).
+    research_dir: Path | None = None
+    research_effort: str = "high"
+    research_network: bool = True
+    research_prompt_template: Path | None = None
+
     # Template name (without "agenda_" prefix / ".md"). The resolved file is
     # <templates_dir>/agenda_<base_template>.md. Per-day variation is handled
     # via `## Additions` / `## Removals` in gtd.md.
@@ -63,6 +72,20 @@ class AgendaConfig(SharedConfig):
         if self.weekday_names:
             return self.weekday_names
         return WEEKDAYS_BY_LANGUAGE.get(self.language, WEEKDAYS_BY_LANGUAGE["en"])
+
+    def vault_root(self) -> Path | None:
+        """Obsidian vault root. gtd.md lives in the vault root, so its parent
+        is the reliable anchor for wikilinks (config `vault_path` may point
+        elsewhere)."""
+        return self.gtd_path.parent if self.gtd_path else self.vault_path
+
+    def resolved_research_dir(self) -> Path:
+        if self.research_dir:
+            return self.research_dir
+        root = self.vault_root()
+        if root is None:
+            raise ValueError("Cannot resolve research_dir: set agenda.research_dir or agenda.gtd_path")
+        return root / "gtd-research"
 
     def resolved_overlay_headings(self) -> tuple[str, str]:
         defaults = OVERLAY_HEADINGS_BY_LANGUAGE.get(
@@ -88,6 +111,10 @@ class AgendaConfig(SharedConfig):
             weekday_names=agenda.get("weekday_names"),
             additions_heading=agenda.get("additions_heading"),
             removals_heading=agenda.get("removals_heading"),
+            research_dir=_opt_path(agenda.get("research_dir")),
+            research_effort=str(agenda.get("research_effort", "high")),
+            research_network=bool(agenda.get("research_network", True)),
+            research_prompt_template=_opt_path(agenda.get("research_prompt_template")),
         )
 
 

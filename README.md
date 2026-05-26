@@ -178,6 +178,73 @@ If Obsidian was launched from a desktop environment and cannot find the command,
 set `HUGIN_AGENDA_SYNC_GTD_CHECKBOX` to the full script path, or change the
 `SYNC` constant in your vault copy.
 
+## GTD-line research agent
+
+`hugin-agenda-research` turns a single GTD line into prepared groundwork. Put
+the cursor on a task line in Obsidian, hit a hotkey, and a background agent
+(codex by default) researches it — reading vault files (meeting notes, project
+docs) and the web — then writes its findings to a sidecar note linked from the
+line. The point is to lower the activation energy of the task: when you come
+back to do it, the prep is already there.
+
+### Workflow
+
+The hotkey is state-aware, driven by a marker it appends to the line:
+
+| Marker   | Meaning     | Hotkey again does                                  |
+| -------- | ----------- | -------------------------------------------------- |
+| (none)   | not started | create sidecar, stamp link + 🔄, launch the agent  |
+| 🔄       | running     | nothing (already running)                          |
+| ❓       | needs input | resume — you answered its questions in the sidecar |
+| ✅       | done        | nothing (open the sidecar)                         |
+| 🛑       | failed      | retry                                              |
+
+The sidecar's frontmatter `status:` is the source of truth; the marker is only
+a cache, so a marker that didn't update (e.g. a write clobbered by Obsidian's
+open buffer) self-heals on the next hotkey press. Sidecars live in
+`<research_dir>/YYYY-MM/<slug>.md` (default `gtd-research/` next to gtd.md) with
+a `## Research` and a `## Logg` section; a questions section appears only when
+the agent needs an answer from you.
+
+### Inline instructions
+
+Anything after a `` // `` on the task line is passed to the agent as a direct
+instruction (and kept out of the slug). URLs (`https://…`) are not mistaken for
+the separator.
+
+```markdown
+- [ ] Rent a car for a month this summer // focus on long-term rental, cheapest
+```
+
+### Configure
+
+Provider and binary come from the shared `llm:` section in `hugin.yaml`
+(default provider `codex`). Agenda-specific keys in `agenda.yaml`:
+
+- `research_dir` — sidecar folder (default `gtd-research/` next to gtd.md)
+- `research_effort` — codex `model_reasoning_effort`: `none | minimal | low |
+  medium | high | xhigh` (default `high`)
+- `research_network` — allow web access (default `true`)
+- `research_prompt_template` — override the packaged prompt
+
+Requires the `codex` CLI on PATH (and `node`, which its shebang needs). The
+agent runs `codex exec` in the vault root with `-s workspace-write`, so it can
+read vault files and edit the sidecar.
+
+### Obsidian integration
+
+`scripts/research_line.js` is a QuickAdd user script.
+
+1. Copy it into your QuickAdd scripts folder.
+2. Create a QuickAdd **Macro** choice that runs the script (the type selector is
+   the button next to the name field — switch it from "Template" to "Macro").
+3. Register the macro as a command (the ⚡ icon) and bind a hotkey under
+   Settings → Hotkeys.
+
+`hugin-agenda-research` must be on the PATH of the process that launched
+Obsidian. If Obsidian was started from a desktop launcher and can't find it,
+set `HUGIN_AGENDA_RESEARCH` to the absolute path at the top of the script.
+
 ## Templates
 
 A single base template ships at `src/hugin_agenda/templates/agenda_base.md`.
