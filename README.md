@@ -13,6 +13,92 @@ Given a date, hugin-agenda:
 5. Strips lines matched by active removals.
 6. Prints the resulting Markdown to stdout — ready to paste into your vault.
 
+There are some utility functions to integrate this with Obsidian, for example syncing checked agenda items from journal.md to gtd.md.
+
+## Workflow
+
+The tool is built around two loops. Concrete commands and Obsidian wiring
+live in later sections; this is the mental model.
+
+**Daily** (in the morning or, better, the day before):
+
+1. Open your daily journal note in Obsidian.
+2. Run the `agenda_choice` QuickAdd macro (or `hugin-agenda --today` / `hugin-agenda --tomorrow`) to
+   insert the generated agenda at the cursor.
+3. Work the day. Tick checkboxes in the journal as you go;
+   `Ctrl+Shift+Enter` (bound to `scripts/toggle_todo_sync_gtd.js`) toggles
+   the box and syncs the state back into `gtd.md`, so tasks completed in
+   the journal disappear from next week's planning surface.
+4. Anything left unchecked at end of day stays in `gtd.md`, ready for
+   tomorrow's agenda or weekly review.
+
+**Continuously**
+1. During the day, add new tasks and ideas to the capture sections in `gtd.md`. See below.
+2. Add date-specific tasks (for example reminders or other things not fitting a calendar booking) or recurring tasks to
+   `## Additions` with a rule (see [Overlays](#overlays-per-day-additions-and-removals)).
+
+**Weekly** (Sunday or Monday):
+
+1. Open `gtd.md`.
+2. Clear out last week's `### Monday`…`### Sunday` blocks under `## Week`.
+   Checked items are done; unchecked items get pulled forward to a day
+   this week, dropped, or moved into a backlog section.
+3. Walk the backlog sections (see below) and promote anything ripe into
+   the right weekday under `## Week`.
+4. Optionally run `hugin-agenda-rotate-journal` to archive last week's journal and
+   reset `journal.md` for the new week.
+
+### Suggested gtd.md layout
+
+Only `## Week` (and weekdays), `## Additions`, and `## Removals` are special to
+hugin-agenda. Everything else is free-form — useful as a staging area for
+weekly planning. A layout that works well:
+
+```markdown
+# GTD
+
+## Week
+### Monday
+- [ ] Standup notes
+### Tuesday
+...
+## Soon
+- [ ] Reach out to N about contract
+- [ ] Fix kitchen faucet
+
+## Later
+### Work
+- [ ] Investigate replacing X
+- [ ] Read paper on Y
+
+### Personal
+...
+
+## Purchases
+- [ ] New running shoes
+- [ ] Replacement HDMI cable
+
+## Waiting for
+- [ ] Invoice from supplier (sent 2026-05-20)
+
+## Someday / Maybe
+- [ ] Sabbatical planning
+
+## Additions
+- [ ] Follow up on quote `2026-06-17`
+- [ ] Take out trash `{every_n_days_from: [2026-01-07, 14]}`
+
+## Removals
+...
+```
+
+Pick whatever extra sections fit your life — common ones are **Soon**
+(this week or next), **Later** (this quarter), **Purchases**, **Waiting
+for** (delegated items, often with a date sent), and **Someday / Maybe**
+(David Allen style: things you've considered but aren't committing to).
+During weekly planning you skim each section and move items into the
+days under `## Week`.
+
 ## Install
 
 ```bash
@@ -125,17 +211,16 @@ under a `### Name `{rule}`` heading inherit the section's rule.
 
 ```markdown
 ## Additions
-- [ ] Dentist 14:00 `2026-06-17`
-- [ ] Take out glass `{every_n_days_from: [2026-01-07, 28]}`
+- [ ] Follow up on thing with Mark `2026-06-17`
+- [ ] Take out trash `{every_n_days_from: [2026-01-07, 14]}`
 
-### Office `{weekdays: [mon, thu]}`
-- [ ] Shorter cleanup, 20m
-- [ ] Quick lunch
+### Weekend `{weekdays: [sat, sun]}`
+- [ ] Sauna
+- [ ] Cleaning
 
 ## Removals
 ### Office `{weekdays: [mon, thu]}`
-- Sauna
-- Long cleanup, 30m
+- [ ] Exercise
 ```
 
 **Additions** are appended to the day's task list and scheduled alongside the

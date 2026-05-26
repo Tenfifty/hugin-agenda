@@ -1,13 +1,11 @@
 # Repo guidance for Claude / Codex
 
 `hugin-agenda` generates daily agendas from a Google Calendar (via
-`gws`) and a weekly GTD markdown file. Part of the [Hugin](../hugin)
-personal productivity stack.
+`gws`) and a weekly GTD markdown file. Part of the Hugin personal productivity stack.
 
 The shared contract (config layout, language handling, vault structure,
-markdown headers, archive-dir naming) lives in
-[`../hugin/CONVENTIONS.md`](../hugin/CONVENTIONS.md). Read that before
-touching anything that crosses tool boundaries.
+markdown headers, archive-dir naming) lives in the separate `hugin` repo
+`hugin/CONVENTIONS.md`. Read that before touching anything that crosses tool boundaries.
 
 ## What's here
 

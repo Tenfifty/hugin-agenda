@@ -11,24 +11,10 @@ agenda:
   # templates_dir: ~/Documents/notes/agenda_templates
 
   # Base template name. Resolves to <templates_dir>/agenda_<base_template>.md.
-  # Per-day variation lives in `## Additions` / `## Removals` in gtd.md, not
-  # in extra template files.
+  # Per-day variation lives in `## Additions` / `## Removals` in gtd.md.
   # base_template: base
 
-  # GTD file with weekly tasks plus overlays. Expected structure:
-  #   ## Week
-  #   ### Monday
-  #   - [ ] task
-  #       - [ ] subitem  (each subitem adds a 30m slot)
-  #
-  #   ## Additions                       # or "Tillägg" for sv
-  #   - [ ] One-off task `2026-06-17`
-  #   - [ ] Take out recycling `{every_n_days_from: [2026-01-07, 28]}`
-  #   ### Office `{weekdays: [mon, thu]}`  # named section, --override Office
-  #   - [ ] Shorter cleanup, 20m
-  #
-  #   ## Removals                        # or "Borttagningar" for sv
-  #   - Standup `2026-07-01..2026-07-21` # substring match against agenda lines
+  # GTD file with weekly tasks plus overlays. See README.md for expected structure:
   # gtd_path: ~/Documents/notes/gtd.md
 
   # Override the overlay section headings (default: follows `language`).
@@ -38,9 +24,9 @@ agenda:
   # Google Calendar id to read (default "primary")
   calendar_id: primary
 
-  # Scheduling: 30-minute slots starting at 09:00 by default
+  # Scheduling: 30-minute slots starting at 08:00 by default
   task_slot_minutes: 30
-  day_start_hour: 9
+  day_start_hour: 8
 
   # Override weekday names used to find the right day in gtd.md. By default
   # they come from the shared `language` field (en/sv supported out of box).
