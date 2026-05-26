@@ -3,7 +3,8 @@
 
 ### Agenda
 - [ ] Stretch
-- [ ] Tidy, 30m
+
+- [ ] Tidy, 20m
 - [ ] Exercise
 - [ ] Meditate
 - [ ] Agenda 2

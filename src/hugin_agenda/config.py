@@ -7,7 +7,7 @@ Reads ~/.config/hugin/hugin.yaml + ~/.config/hugin/agenda.yaml via
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -25,6 +25,12 @@ WEEKDAYS_BY_LANGUAGE: dict[str, list[str]] = {
     "sv": ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"],
 }
 
+# H2 headings that delimit the additions/removals overlay sections in gtd.md.
+OVERLAY_HEADINGS_BY_LANGUAGE: dict[str, dict[str, str]] = {
+    "en": {"additions": "Additions", "removals": "Removals"},
+    "sv": {"additions": "Tillägg", "removals": "Borttagningar"},
+}
+
 
 def _opt_path(value: Any) -> Path | None:
     return Path(value).expanduser() if value else None
@@ -39,30 +45,37 @@ class AgendaConfig(SharedConfig):
     task_slot_minutes: int = 30
     day_start_hour: int = 9
 
-    # weekday index (0=Mon..6=Sun) -> template name (without "agenda_" prefix / ".md")
-    template_map: dict[int, str] = field(default_factory=lambda: {
-        0: "weekday", 1: "weekday", 2: "weekday", 3: "weekday", 4: "weekday",
-        5: "weekend", 6: "weekend",
-    })
+    # Template name (without "agenda_" prefix / ".md"). The resolved file is
+    # <templates_dir>/agenda_<base_template>.md. Per-day variation is handled
+    # via `## Additions` / `## Removals` in gtd.md.
+    base_template: str = "base"
 
     # Weekday names used to find the right day in gtd.md. Defaults are
     # looked up from `language`; override here to force a specific list.
     weekday_names: list[str] | None = None
+
+    # H2 headings of the overlay sections in gtd.md. Defaults follow
+    # `language` (en: Additions/Removals; sv: Tillägg/Borttagningar).
+    additions_heading: str | None = None
+    removals_heading: str | None = None
 
     def resolved_weekday_names(self) -> list[str]:
         if self.weekday_names:
             return self.weekday_names
         return WEEKDAYS_BY_LANGUAGE.get(self.language, WEEKDAYS_BY_LANGUAGE["en"])
 
+    def resolved_overlay_headings(self) -> tuple[str, str]:
+        defaults = OVERLAY_HEADINGS_BY_LANGUAGE.get(
+            self.language, OVERLAY_HEADINGS_BY_LANGUAGE["en"]
+        )
+        return (
+            self.additions_heading or defaults["additions"],
+            self.removals_heading or defaults["removals"],
+        )
+
     @classmethod
     def from_merged(cls, merged: dict[str, Any]) -> "AgendaConfig":
         agenda = merged.get("agenda", {}) if isinstance(merged.get("agenda"), dict) else {}
-
-        template_map_raw = agenda.get("template_map")
-        if isinstance(template_map_raw, dict):
-            template_map = {int(k): str(v) for k, v in template_map_raw.items()}
-        else:
-            template_map = cls().template_map
 
         return cls(
             **SharedConfig.fields_from_merged(merged),
@@ -71,8 +84,10 @@ class AgendaConfig(SharedConfig):
             calendar_id=agenda.get("calendar_id", "primary"),
             task_slot_minutes=int(agenda.get("task_slot_minutes", 30)),
             day_start_hour=int(agenda.get("day_start_hour", 9)),
-            template_map=template_map,
+            base_template=str(agenda.get("base_template", "base")),
             weekday_names=agenda.get("weekday_names"),
+            additions_heading=agenda.get("additions_heading"),
+            removals_heading=agenda.get("removals_heading"),
         )
 
 

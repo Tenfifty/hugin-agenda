@@ -28,7 +28,7 @@ class AgendaConfigTests(unittest.TestCase):
                 "task_slot_minutes": 15,
                 "day_start_hour": 8,
                 "gtd_path": "/tmp/gtd.md",
-                "template_map": {"0": "weekday", "5": "weekend", "6": "weekend"},
+                "base_template": "kontor",
             },
         })
         self.assertEqual(cfg.language, "sv")
@@ -36,9 +36,28 @@ class AgendaConfigTests(unittest.TestCase):
         self.assertEqual(cfg.task_slot_minutes, 15)
         self.assertEqual(cfg.day_start_hour, 8)
         self.assertEqual(cfg.gtd_path, Path("/tmp/gtd.md"))
-        # template_map keys are coerced to int even when YAML gives strings
-        self.assertEqual(cfg.template_map[0], "weekday")
-        self.assertEqual(cfg.template_map[5], "weekend")
+        self.assertEqual(cfg.base_template, "kontor")
+
+    def test_base_template_defaults_to_base(self) -> None:
+        cfg = AgendaConfig.from_merged({})
+        self.assertEqual(cfg.base_template, "base")
+
+    def test_overlay_headings_follow_language(self) -> None:
+        self.assertEqual(
+            AgendaConfig.from_merged({"language": "en"}).resolved_overlay_headings(),
+            ("Additions", "Removals"),
+        )
+        self.assertEqual(
+            AgendaConfig.from_merged({"language": "sv"}).resolved_overlay_headings(),
+            ("Tillägg", "Borttagningar"),
+        )
+
+    def test_overlay_headings_override(self) -> None:
+        cfg = AgendaConfig.from_merged({
+            "language": "sv",
+            "agenda": {"additions_heading": "Extras", "removals_heading": "Drops"},
+        })
+        self.assertEqual(cfg.resolved_overlay_headings(), ("Extras", "Drops"))
 
     def test_resolved_weekday_names_swedish(self) -> None:
         cfg = AgendaConfig.from_merged({"language": "sv"})

@@ -14,6 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from .config import AgendaConfig, load_config
+from .overlays import (
+    Removal,
+    active_additions,
+    active_removals,
+    apply_removals,
+    list_section_names,
+    parse_overlays,
+)
 
 
 @dataclass
@@ -59,22 +67,41 @@ def parse_args(cfg: AgendaConfig) -> argparse.Namespace:
     )
     parser.add_argument(
         "--template",
-        help="Override template choice (e.g. 'weekday', 'weekend', 'kontor').",
+        help=f"Override base template (default: {cfg.base_template!r}).",
     )
     parser.add_argument(
         "--calendar",
         default=cfg.calendar_id,
         help=f"Calendar id to read (default: {cfg.calendar_id})",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--override",
+        help=(
+            "Force a named gtd.md overlay section (its items fire regardless of "
+            "the section's date rule). Other sections still evaluate normally."
+        ),
+    )
+    parser.add_argument(
+        "--no-named-sections",
+        action="store_true",
+        help=(
+            "Suppress every named overlay section regardless of date rules; "
+            "only the base template plus per-line additions/removals fire."
+        ),
+    )
+    parser.add_argument(
+        "--list-overrides",
+        action="store_true",
+        help="Print the names of overlay sections in gtd.md and exit.",
+    )
+    args = parser.parse_args()
+    if args.override and args.no_named_sections:
+        parser.error("--override and --no-named-sections are mutually exclusive")
+    return args
 
 
 def local_tzinfo():
     return datetime.now().astimezone().tzinfo
-
-
-def default_template_for_day(target_date: date, cfg: AgendaConfig) -> str:
-    return cfg.template_map.get(target_date.weekday(), "weekday")
 
 
 def template_path(template_name: str, cfg: AgendaConfig) -> Path:
@@ -205,12 +232,23 @@ def replace_header_date(template_lines: list[str], target_date: date) -> None:
 
 
 def find_agenda_insertion_index(lines: list[str]) -> int:
+    """Return index of the marker blank line in the template.
+
+    The marker is the first blank line whose preceding non-blank line is a
+    list item (``- ...``). Items are inserted at this index; the blank line
+    itself is preserved as a visual separator. Templates without a marker
+    fall back to appending at the end.
+    """
     for idx, line in enumerate(lines):
-        if re.search(r"-\s+\[[^\]]\]\s+.*Städa", line, re.IGNORECASE):
-            return idx
-    for idx, line in enumerate(lines):
-        if "Agenda 2" in line:
-            return idx
+        if line.strip():
+            continue
+        for back in range(idx - 1, -1, -1):
+            prev = lines[back]
+            if not prev.strip():
+                continue
+            if prev.lstrip().startswith("-"):
+                return idx
+            break
     return len(lines)
 
 
@@ -376,6 +414,7 @@ def render_agenda(
     template_name: str,
     events: list[CalendarEvent],
     tasks: list[GtdTaskBlock],
+    removals: list[Removal] | None = None,
 ) -> str:
     path = template_path(template_name, cfg)
     if not path.exists():
@@ -393,12 +432,18 @@ def render_agenda(
         for item in items:
             output_lines.extend(item.lines)
     output_lines.extend(lines[insertion_idx:])
+    output_lines = apply_removals(output_lines, removals or [])
     return "\n".join(output_lines) + "\n\n"
 
 
 def main() -> int:
     cfg = load_config()
     args = parse_args(cfg)
+    additions_heading, removals_heading = cfg.resolved_overlay_headings()
+    if args.list_overrides:
+        for name in list_section_names(cfg.gtd_path, additions_heading, removals_heading):
+            sys.stdout.write(name + "\n")
+        return 0
     today = date.today()
     if args.date:
         try:
@@ -408,17 +453,28 @@ def main() -> int:
             return 1
     else:
         target_date = today if args.today else today + timedelta(days=1)
-    template_name = args.template or default_template_for_day(target_date, cfg)
+    template_name = args.template or cfg.base_template
 
     try:
         events = fetch_events(cfg, target_date, args.calendar)
         tasks = parse_gtd_week_tasks(cfg, target_date)
+        additions, removals = parse_overlays(
+            cfg.gtd_path, additions_heading, removals_heading
+        )
+        for addition in active_additions(
+            additions, target_date, args.override, args.no_named_sections
+        ):
+            tasks.append(GtdTaskBlock(lines=[addition.text], duration_slots=1))
+        active_rems = active_removals(
+            removals, target_date, args.override, args.no_named_sections
+        )
         agenda = render_agenda(
             cfg=cfg,
             target_date=target_date,
             template_name=template_name,
             events=events,
             tasks=tasks,
+            removals=active_rems,
         )
     except (AgendaError, FileNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

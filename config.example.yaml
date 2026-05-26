@@ -10,23 +10,30 @@ agenda:
   # Point at your own dir to use custom templates (e.g. Swedish, personal).
   # templates_dir: ~/Documents/notes/agenda_templates
 
-  # Weekday index (0=Mon..6=Sun) -> template name. The resolved file is
-  # <templates_dir>/agenda_<name>.md.
-  template_map:
-    0: weekday
-    1: weekday
-    2: weekday
-    3: weekday
-    4: weekday
-    5: weekend
-    6: weekend
+  # Base template name. Resolves to <templates_dir>/agenda_<base_template>.md.
+  # Per-day variation lives in `## Additions` / `## Removals` in gtd.md, not
+  # in extra template files.
+  # base_template: base
 
-  # GTD file with weekly tasks. Expected structure:
+  # GTD file with weekly tasks plus overlays. Expected structure:
   #   ## Week
   #   ### Monday
   #   - [ ] task
   #       - [ ] subitem  (each subitem adds a 30m slot)
+  #
+  #   ## Additions                       # or "Tillägg" for sv
+  #   - [ ] One-off task `2026-06-17`
+  #   - [ ] Take out recycling `{every_n_days_from: [2026-01-07, 28]}`
+  #   ### Office `{weekdays: [mon, thu]}`  # named section, --override Office
+  #   - [ ] Shorter cleanup, 20m
+  #
+  #   ## Removals                        # or "Borttagningar" for sv
+  #   - Standup `2026-07-01..2026-07-21` # substring match against agenda lines
   # gtd_path: ~/Documents/notes/gtd.md
+
+  # Override the overlay section headings (default: follows `language`).
+  # additions_heading: Additions
+  # removals_heading: Removals
 
   # Google Calendar id to read (default "primary")
   calendar_id: primary

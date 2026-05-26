@@ -5,11 +5,13 @@ file. Part of the [Hugin](https://github.com/Tenfifty/hugin) personal productivi
 
 Given a date, hugin-agenda:
 
-1. Picks an agenda template based on the weekday (or `--template <name>`).
+1. Loads a single base template (or `--template <name>`).
 2. Fetches calendar events via the Google Workspace CLI (`gws`).
-3. Parses the current week's GTD tasks for that weekday.
-4. Schedules the GTD tasks around the events in 30-minute slots.
-5. Prints the resulting Markdown to stdout — ready to paste into your vault.
+3. Parses the current week's GTD tasks for that weekday, plus date-rule
+   overlays from `## Additions` / `## Removals` in the same GTD file.
+4. Schedules the GTD tasks + active additions around events in 30-minute slots.
+5. Strips lines matched by active removals.
+6. Prints the resulting Markdown to stdout — ready to paste into your vault.
 
 ## Install
 
@@ -38,7 +40,7 @@ Override the config dir with `HUGIN_CONFIG_DIR=/path`.
 hugin-agenda                       # agenda for tomorrow
 hugin-agenda --today               # agenda for today
 hugin-agenda --date 2026-05-01
-hugin-agenda --template weekend    # force a specific template
+hugin-agenda --template kontor     # use agenda_kontor.md instead of agenda_base.md
 ```
 
 ### Rotate the journal
@@ -71,21 +73,117 @@ hugin-agenda-rotate-journal --open-archive
 
 ## Templates
 
-Default English templates ship in
-`src/hugin_agenda/templates/agenda_{weekday,weekend}.md`. Point
-`agenda.templates_dir` at your own directory to use custom ones — the file
-name must be `agenda_<template>.md`.
+A single base template ships at `src/hugin_agenda/templates/agenda_base.md`.
+Point `agenda.templates_dir` at your own directory to use custom ones, and
+set `agenda.base_template: <name>` to pick which file is the base (resolves
+to `agenda_<name>.md`). `--template <name>` overrides for a single run.
+
+Per-day variation is **not** done with multiple template files — use the
+`## Additions` / `## Removals` sections in your GTD file instead (see below).
 
 Each template should have an `## <date>` header (auto-rewritten) and may end
 with a `- [ ] Agenda 2` sentinel line above which scheduled items are inserted.
 
 ## GTD format
 
-The parser looks for:
-
 ```markdown
 ## Week            (or "Vecka" in Swedish)
 ### Monday         (localised by `language` — en/sv built in)
 - [ ] Some task
     - [ ] subitem  (each subitem adds a 30m slot to the task's duration)
+```
+
+## Overlays: per-day additions and removals
+
+Two optional sections in the same GTD file let you add or strip lines on
+specific dates without creating extra template files. Headings follow
+`language` (en: `## Additions` / `## Removals`; sv: `## Tillägg` /
+`## Borttagningar`; override with `additions_heading` / `removals_heading`).
+Lines before any `###` subheading carry per-line rules in backticks; items
+under a `### Name `{rule}`` heading inherit the section's rule.
+
+```markdown
+## Additions
+- [ ] Dentist 14:00 `2026-06-17`
+- [ ] Take out glass `{every_n_days_from: [2026-01-07, 28]}`
+
+### Office `{weekdays: [mon, thu]}`
+- [ ] Shorter cleanup, 20m
+- [ ] Quick lunch
+
+## Removals
+### Office `{weekdays: [mon, thu]}`
+- Sauna
+- Long cleanup, 30m
+```
+
+**Additions** are appended to the day's task list and scheduled alongside the
+weekly tasks. **Removals** strip any agenda line containing the given
+substring (case-sensitive), including calendar event lines — intentional, so
+vacation removals also hide work meetings.
+
+### Named sections and manual override
+
+A `### Name `{rule}`` heading attaches the rule to every item below it
+(until the next `###`). The name is exposed via:
+
+```bash
+hugin-agenda --list-overrides       # prints section names from gtd.md
+hugin-agenda --override Office      # forces that section's items today
+```
+
+`--override` is additive: the named section fires regardless of its date
+rule; other sections still evaluate normally.
+
+## Obsidian integration
+
+A ready-made [QuickAdd](https://github.com/chhoumann/quickadd) macro lives at
+`scripts/agenda_choice.js`. It asks Today/Tomorrow, then offers
+`(auto)` + every named section from your gtd.md (read live via
+`--list-overrides`), then inserts the rendered agenda at the cursor.
+
+Setup:
+
+1. Copy `scripts/agenda_choice.js` into the scripts folder configured in
+   QuickAdd settings.
+2. Create a QuickAdd macro that runs the script.
+3. Bind the macro to a hotkey or expose it through the QuickAdd command palette.
+
+`hugin-agenda` must be on the PATH of the process that launched Obsidian.
+If Obsidian was started from a desktop launcher and can't find it, hardcode
+the absolute path at the top of the script (`const HUGIN = "..."`).
+
+### Rule syntax
+
+Shorthand forms first, then YAML flow for everything else:
+
+| Rule                                | Meaning                                    |
+| ----------------------------------- | ------------------------------------------ |
+| `2026-06-17`                        | one exact date                             |
+| `2026-07-01..2026-07-21`            | inclusive date range                       |
+| `{key: value, ...}`                 | YAML mapping; full grammar below           |
+
+### Matcher keys (all AND together within a rule; lists within a key OR)
+
+| Key                  | Example                                              | Meaning                                                  |
+| -------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| `weekdays`           | `[mon, thu]`                                         | matches if `target.weekday` is in the list               |
+| `months`             | `[6, 7, 8]`                                          | matches in June/July/August                              |
+| `day_of_month`       | `[1, 15, -1]`                                        | 1st, 15th, or last day; negatives count from end         |
+| `nth_weekday`        | `[1, mon]`, `[-1, fri]`                              | 1st Monday / last Friday of the month; 1-indexed         |
+| `dates`              | `[2026-06-17, 2026-12-24]`                           | exact dates (any of)                                     |
+| `date_ranges`        | `[[2026-07-01, 2026-07-21]]`                         | inclusive ranges (any of)                                |
+| `every_n_days_from`  | `[2026-01-07, 28]`                                   | anchor date + cadence; matches anchor, anchor+N, ...     |
+| `not`                | `{dates: [2026-12-24]}`                              | nested rule; negated                                     |
+
+`day_of_month` and `nth_weekday` accept negative integers (`-1` = last,
+`-2` = second-to-last). Position `0` raises an error.
+
+### Examples
+
+```markdown
+- [ ] Every other Wednesday from June 17 `{weekdays: [wed], every_n_days_from: [2026-06-17, 14]}`
+- [ ] Last Friday of the month payday `{nth_weekday: [-1, fri]}`
+- [ ] Summer Wednesdays only `{weekdays: [wed], months: [6, 7, 8]}`
+- [ ] Every Wednesday except Christmas `{weekdays: [wed], not: {dates: [2026-12-24]}}`
 ```
