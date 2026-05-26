@@ -13,7 +13,7 @@ Given a date, hugin-agenda:
 5. Strips lines matched by active removals.
 6. Prints the resulting Markdown to stdout — ready to paste into your vault.
 
-There are some utility functions to integrate this with Obsidian, for example syncing checked agenda items from journal.md to gtd.md.
+There are also some utility functions to integrate this with Obsidian, for example syncing checked agenda items from `journal.md` to `gtd.md`.
 
 ## Workflow
 
