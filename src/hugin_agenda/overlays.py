@@ -184,8 +184,9 @@ def _resolve_day(value: int, month_days: int) -> int:
 
 _ADDITION_WITH_RULE_RE = re.compile(r"^(\s*-\s+\[[ xX]\]\s+.*?)\s+`([^`]+)`\s*$")
 _ADDITION_PLAIN_RE = re.compile(r"^\s*-\s+\[[ xX]\]\s+(.+?)\s*$")
-_REMOVAL_WITH_RULE_RE = re.compile(r"^\s*-\s+(.*?)\s+`([^`]+)`\s*$")
+_REMOVAL_WITH_RULE_RE = re.compile(r"^\s*-\s+(.*?)\s*`([^`]+)`\s*$")
 _REMOVAL_PLAIN_RE = re.compile(r"^\s*-\s+(.+?)\s*$")
+_CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s+")
 _H3_RE = re.compile(r"^###\s+(.+?)(?:\s+`([^`]+)`)?\s*$")
 
 
@@ -267,7 +268,7 @@ def _parse_with_inline_rule(line: str, kind: str):
     match = _REMOVAL_WITH_RULE_RE.match(line)
     if not match:
         return None
-    pattern = match.group(1).strip()
+    pattern = _removal_pattern(match.group(1))
     if not pattern:
         return None
     return Removal(pattern=pattern, rule=parse_rule(match.group(2)))
@@ -282,10 +283,14 @@ def _parse_in_section(line: str, kind: str, rule: Rule, section: str | None):
     match = _REMOVAL_PLAIN_RE.match(line)
     if not match:
         return None
-    pattern = match.group(1).strip()
+    pattern = _removal_pattern(match.group(1))
     if not pattern:
         return None
     return Removal(pattern=pattern, rule=rule, section=section)
+
+
+def _removal_pattern(raw: str) -> str:
+    return _CHECKBOX_PREFIX_RE.sub("", raw.strip()).strip()
 
 
 def _find_h2(lines: list[str], heading: str) -> int | None:

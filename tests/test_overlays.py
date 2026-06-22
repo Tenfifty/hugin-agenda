@@ -145,6 +145,17 @@ class GtdParsingTests(unittest.TestCase):
         self.assertEqual(len(rems), 2)
         self.assertEqual(rems[0].pattern, "Clockify")
 
+    def test_inline_removal_allows_checkbox_and_adjacent_rule(self) -> None:
+        body = """\
+## Removals
+- [ ] CMR`{every_n_days_from: [2026-06-04, 7]}`
+"""
+        path = self._write_gtd(body)
+        _, rems = parse_overlays(path)
+        self.assertEqual(len(rems), 1)
+        self.assertEqual(rems[0].pattern, "CMR")
+        self.assertTrue(rems[0].rule.matches(date(2026, 6, 25)))
+
     def test_section_ends_at_next_h2(self) -> None:
         body = """\
 ## Additions

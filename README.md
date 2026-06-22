@@ -289,6 +289,8 @@ under a `### Name `{rule}`` heading inherit the section's rule.
 - [ ] Cleaning
 
 ## Removals
+- [ ] CMR`{every_n_days_from: [2026-06-04, 7]}`
+
 ### Office `{weekdays: [mon, thu]}`
 - [ ] Exercise
 ```
@@ -300,7 +302,8 @@ it sorts with calendar events and blocks that time for floating tasks. The `~`
 marker is preserved for other Hugin tools, such as hugin-meeting.
 **Removals** strip any agenda line containing the given substring
 (case-sensitive), including calendar event lines — intentional, so vacation
-removals also hide work meetings.
+removals also hide work meetings. A checkbox prefix in a removal is optional
+and ignored when matching.
 
 ### Named sections and manual override
 
