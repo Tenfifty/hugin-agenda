@@ -305,6 +305,11 @@ marker is preserved for other Hugin tools, such as hugin-meeting.
 removals also hide work meetings. A checkbox prefix in a removal is optional
 and ignored when matching.
 
+Malformed overlay lines are skipped, but no longer disappear silently. If an
+addition, removal, or rule-bearing `###` subheading cannot be parsed, the
+generated agenda includes a warning block above `### Agenda` with the `gtd.md`
+line number and source line.
+
 ### Named sections and manual override
 
 A `### Name `{rule}`` heading attaches the rule to every item below it

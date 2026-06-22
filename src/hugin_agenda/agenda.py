@@ -15,12 +15,13 @@ from typing import Any
 
 from .config import AgendaConfig, load_config
 from .overlays import (
+    OverlayWarning,
     Removal,
     active_additions,
     active_removals,
     apply_removals,
     list_section_names,
-    parse_overlays,
+    parse_overlays_with_warnings,
 )
 
 
@@ -312,6 +313,32 @@ def find_agenda_insertion_index(lines: list[str]) -> int:
     return len(lines)
 
 
+def insert_overlay_warnings(
+    lines: list[str],
+    warnings: list[OverlayWarning],
+) -> list[str]:
+    if not warnings:
+        return lines
+
+    block = ["> [!warning] hugin-agenda overlay warnings"]
+    for warning in warnings:
+        block.append(
+            f"> - gtd.md:{warning.line_number} "
+            f"(## {warning.heading}): {warning.message}"
+        )
+        block.append(f">   Source: {warning.line}")
+    block.append("")
+
+    insert_idx = 0
+    for idx, line in enumerate(lines):
+        if line.startswith("### Agenda"):
+            insert_idx = idx
+            break
+        if idx == 0 and line.startswith("## "):
+            insert_idx = 1
+    return lines[:insert_idx] + block + lines[insert_idx:]
+
+
 def parse_gtd_week_tasks(cfg: AgendaConfig, target_date: date) -> list[GtdTaskBlock]:
     if not cfg.gtd_path or not cfg.gtd_path.exists():
         return []
@@ -484,6 +511,7 @@ def render_agenda(
     events: list[CalendarEvent],
     tasks: list[GtdTaskBlock],
     removals: list[Removal] | None = None,
+    overlay_warnings: list[OverlayWarning] | None = None,
 ) -> str:
     path = template_path(template_name, cfg)
     if not path.exists():
@@ -517,6 +545,7 @@ def render_agenda(
             output_lines.extend(item.lines)
     output_lines.extend(lines[tail_idx:])
     output_lines = apply_removals(output_lines, removals or [])
+    output_lines = insert_overlay_warnings(output_lines, overlay_warnings or [])
     return "\n".join(output_lines) + "\n\n"
 
 
@@ -542,7 +571,7 @@ def main() -> int:
     try:
         events = fetch_events(cfg, target_date, args.calendar)
         tasks = parse_gtd_week_tasks(cfg, target_date)
-        additions, removals = parse_overlays(
+        additions, removals, overlay_warnings = parse_overlays_with_warnings(
             cfg.gtd_path, additions_heading, removals_heading
         )
         for addition in active_additions(
@@ -559,6 +588,7 @@ def main() -> int:
             events=events,
             tasks=tasks,
             removals=active_rems,
+            overlay_warnings=overlay_warnings,
         )
     except (AgendaError, FileNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

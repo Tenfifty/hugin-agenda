@@ -6,9 +6,11 @@ from datetime import date
 from pathlib import Path
 
 from hugin_agenda.overlays import (
+    OverlayWarning,
     OverlayError,
     apply_removals,
     parse_overlays,
+    parse_overlays_with_warnings,
     parse_rule,
     active_additions,
     active_removals,
@@ -39,6 +41,10 @@ class RuleParsingTests(unittest.TestCase):
     def test_unknown_syntax_raises(self) -> None:
         with self.assertRaises(OverlayError):
             parse_rule("not-a-date")
+
+    def test_unknown_matcher_key_raises(self) -> None:
+        with self.assertRaisesRegex(OverlayError, "unknown matcher key"):
+            parse_rule("{weekdayz: [mon]}")
 
     def test_empty_raises(self) -> None:
         with self.assertRaises(OverlayError):
@@ -155,6 +161,28 @@ class GtdParsingTests(unittest.TestCase):
         self.assertEqual(len(rems), 1)
         self.assertEqual(rems[0].pattern, "CMR")
         self.assertTrue(rems[0].rule.matches(date(2026, 6, 25)))
+
+    def test_parse_warnings_for_malformed_overlay_lines(self) -> None:
+        body = """\
+## Additions
+- [ ] Good `2026-06-17`
+- [ ] Missing rule
+- [ ] Bad `not-a-rule`
+### Sundays {weekdays: [sun]}
+- [ ] Hidden by malformed heading
+## Removals
+- Missing removal rule
+"""
+        path = self._write_gtd(body)
+        adds, rems, warnings = parse_overlays_with_warnings(path)
+
+        self.assertEqual([a.text for a in adds], ["- [ ] Good"])
+        self.assertEqual(rems, [])
+        self.assertEqual([warning.line_number for warning in warnings], [3, 4, 5, 8])
+        self.assertIn("could not parse addition", warnings[0].message)
+        self.assertIn("invalid addition rule", warnings[1].message)
+        self.assertIn("could not parse section rule", warnings[2].message)
+        self.assertIn("could not parse removal", warnings[3].message)
 
     def test_section_ends_at_next_h2(self) -> None:
         body = """\
@@ -289,6 +317,48 @@ class ActiveAndApplyTests(unittest.TestCase):
 
 
 class RenderIntegrationTests(unittest.TestCase):
+    def test_overlay_warnings_render_above_agenda_heading(self) -> None:
+        from hugin_agenda.agenda import render_agenda
+        from hugin_agenda.config import AgendaConfig
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "agenda_base.md").write_text(
+                "## YYYY-MM-DD\n"
+                ":-)\n"
+                "\n"
+                "### Agenda\n"
+                "- [ ] Review inbox\n"
+                "\n"
+                "- [ ] Plan tomorrow\n",
+                encoding="utf-8",
+            )
+            cfg = AgendaConfig.from_merged({"language": "en"})
+            cfg.templates_dir = tmp_path
+
+            out = render_agenda(
+                cfg=cfg,
+                target_date=date(2026, 6, 17),
+                template_name="base",
+                events=[],
+                tasks=[],
+                overlay_warnings=[
+                    OverlayWarning(
+                        line_number=151,
+                        heading="Tillägg",
+                        message="could not parse addition",
+                        line="- [ ] Veckoagenda {`weekdays: [Sun]`}",
+                    )
+                ],
+            )
+
+            self.assertLess(
+                out.index("hugin-agenda overlay warnings"),
+                out.index("### Agenda"),
+            )
+            self.assertIn("gtd.md:151 (## Tillägg): could not parse addition", out)
+            self.assertIn("Source: - [ ] Veckoagenda {`weekdays: [Sun]`}", out)
+
     def test_timed_addition_sorts_with_calendar_and_blocks_task_slot(self) -> None:
         from datetime import datetime
 
