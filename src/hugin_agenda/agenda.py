@@ -45,6 +45,13 @@ class GtdTaskBlock:
     duration_slots: int
 
 
+@dataclass
+class FixedAgendaBlock:
+    lines: list[str]
+    start: datetime
+    end: datetime
+
+
 class AgendaError(RuntimeError):
     pass
 
@@ -223,6 +230,59 @@ def event_line(event: CalendarEvent) -> str:
     return f"- [ ] {event.title} *{{{start_text} - {end_text}}}*"
 
 
+_TIME_MARKER_RE = re.compile(
+    r"\*\s*~?\{\s*([01]?\d|2[0-3]):([0-5]\d)"
+    r"(?:\s*-\s*([01]?\d|2[0-3]):([0-5]\d))?\s*\}\s*\*"
+)
+
+
+def timed_block_from_task(
+    task: GtdTaskBlock,
+    target_date: date,
+    slot_minutes: int,
+) -> FixedAgendaBlock | None:
+    if not task.lines:
+        return None
+    match = _TIME_MARKER_RE.search(task.lines[0])
+    if not match:
+        return None
+
+    tz = local_tzinfo()
+    start = datetime.combine(
+        target_date,
+        time(int(match.group(1)), int(match.group(2))),
+        tzinfo=tz,
+    )
+    duration = timedelta(minutes=slot_minutes * max(1, task.duration_slots))
+    if match.group(3) is not None and match.group(4) is not None:
+        end = datetime.combine(
+            target_date,
+            time(int(match.group(3)), int(match.group(4))),
+            tzinfo=tz,
+        )
+        if end <= start:
+            end = start + duration
+    else:
+        end = start + duration
+    return FixedAgendaBlock(lines=task.lines, start=start, end=end)
+
+
+def split_fixed_task_blocks(
+    tasks: list[GtdTaskBlock],
+    target_date: date,
+    slot_minutes: int,
+) -> tuple[list[FixedAgendaBlock], list[GtdTaskBlock]]:
+    fixed: list[FixedAgendaBlock] = []
+    floating: list[GtdTaskBlock] = []
+    for task in tasks:
+        fixed_block = timed_block_from_task(task, target_date, slot_minutes)
+        if fixed_block is None:
+            floating.append(task)
+        else:
+            fixed.append(fixed_block)
+    return fixed, floating
+
+
 def replace_header_date(template_lines: list[str], target_date: date) -> None:
     for idx, line in enumerate(template_lines):
         if line.startswith("## "):
@@ -366,12 +426,15 @@ def schedule_tasks(
     target_date: date,
     events: list[CalendarEvent],
     tasks: list[GtdTaskBlock],
+    busy_blocks: list[tuple[datetime, datetime]] | None = None,
 ) -> list[tuple[GtdTaskBlock, datetime]]:
     if not tasks:
         return []
 
     tz = local_tzinfo()
-    busy = merge_intervals([(event.start, event.end) for event in events])
+    busy = merge_intervals(
+        [(event.start, event.end) for event in events] + (busy_blocks or [])
+    )
     cursor = datetime.combine(target_date, time(cfg.day_start_hour, 0), tzinfo=tz)
     assignments: list[tuple[GtdTaskBlock, datetime]] = []
     slot = timedelta(minutes=cfg.task_slot_minutes)
@@ -396,15 +459,21 @@ def schedule_tasks(
 
 def build_agenda_items(
     events: list[CalendarEvent],
+    fixed_blocks: list[FixedAgendaBlock],
     scheduled_tasks: list[tuple[GtdTaskBlock, datetime]],
 ) -> list[AgendaItem]:
     items: list[AgendaItem] = []
     for event in events:
         items.append(AgendaItem(at=event.start, lines=[event_line(event)], kind="event"))
+    for fixed_block in fixed_blocks:
+        items.append(
+            AgendaItem(at=fixed_block.start, lines=fixed_block.lines, kind="fixed")
+        )
     for task_block, when in scheduled_tasks:
         items.append(AgendaItem(at=when, lines=task_block.lines, kind="task"))
 
-    items.sort(key=lambda item: (item.at, 0 if item.kind == "event" else 1))
+    kind_order = {"event": 0, "fixed": 0, "task": 1}
+    items.sort(key=lambda item: (item.at, kind_order.get(item.kind, 99)))
     return items
 
 
@@ -424,8 +493,20 @@ def render_agenda(
     replace_header_date(lines, target_date)
 
     insertion_idx = find_agenda_insertion_index(lines)
-    scheduled_tasks = schedule_tasks(cfg, target_date, events, tasks)
-    items = build_agenda_items(events, scheduled_tasks)
+    fixed_blocks, floating_tasks = split_fixed_task_blocks(
+        tasks,
+        target_date,
+        cfg.task_slot_minutes,
+    )
+    busy_blocks = [(block.start, block.end) for block in fixed_blocks]
+    scheduled_tasks = schedule_tasks(
+        cfg,
+        target_date,
+        events,
+        floating_tasks,
+        busy_blocks,
+    )
+    items = build_agenda_items(events, fixed_blocks, scheduled_tasks)
     tail_idx = insertion_idx
     if insertion_idx < len(lines) and not lines[insertion_idx].strip():
         tail_idx += 1

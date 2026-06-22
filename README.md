@@ -9,7 +9,8 @@ Given a date, hugin-agenda:
 2. Fetches calendar events via the Google Workspace CLI (`gws`).
 3. Parses the current week's GTD tasks for that weekday, plus date-rule
    overlays from `## Additions` / `## Removals` in the same GTD file.
-4. Schedules the GTD tasks + active additions around events in 30-minute slots.
+4. Schedules GTD tasks + untimed active additions around calendar events and
+   timed additions in 30-minute slots.
 5. Strips lines matched by active removals.
 6. Prints the resulting Markdown to stdout — ready to paste into your vault.
 
@@ -293,9 +294,13 @@ under a `### Name `{rule}`` heading inherit the section's rule.
 ```
 
 **Additions** are appended to the day's task list and scheduled alongside the
-weekly tasks. **Removals** strip any agenda line containing the given
-substring (case-sensitive), including calendar event lines — intentional, so
-vacation removals also hide work meetings.
+weekly tasks. If an addition contains an agenda time marker like
+`*{15:00 - 15:30}*` or `*~{15:00}*`, it is treated as a fixed-time item:
+it sorts with calendar events and blocks that time for floating tasks. The `~`
+marker is preserved for other Hugin tools, such as hugin-meeting.
+**Removals** strip any agenda line containing the given substring
+(case-sensitive), including calendar event lines — intentional, so vacation
+removals also hide work meetings.
 
 ### Named sections and manual override
 
