@@ -278,6 +278,65 @@ class ActiveAndApplyTests(unittest.TestCase):
 
 
 class RenderIntegrationTests(unittest.TestCase):
+    def test_insertion_marker_blank_line_is_consumed(self) -> None:
+        from hugin_agenda.agenda import GtdTaskBlock, render_agenda
+        from hugin_agenda.config import AgendaConfig
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "agenda_base.md").write_text(
+                "## YYYY-MM-DD\n"
+                "### Agenda\n"
+                "- [ ] Review inbox\n"
+                "\n"
+                "- [ ] Plan tomorrow\n",
+                encoding="utf-8",
+            )
+            cfg = AgendaConfig.from_merged({"language": "en"})
+            cfg.templates_dir = tmp_path
+
+            out = render_agenda(
+                cfg=cfg,
+                target_date=date(2026, 6, 17),
+                template_name="base",
+                events=[],
+                tasks=[GtdTaskBlock(lines=["- [ ] Weekly task"], duration_slots=1)],
+            )
+
+            self.assertIn(
+                "- [ ] Review inbox\n- [ ] Weekly task\n- [ ] Plan tomorrow",
+                out,
+            )
+            self.assertNotIn("- [ ] Weekly task\n\n- [ ] Plan tomorrow", out)
+
+    def test_insertion_marker_blank_line_is_consumed_without_items(self) -> None:
+        from hugin_agenda.agenda import render_agenda
+        from hugin_agenda.config import AgendaConfig
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "agenda_base.md").write_text(
+                "## YYYY-MM-DD\n"
+                "### Agenda\n"
+                "- [ ] Review inbox\n"
+                "\n"
+                "- [ ] Plan tomorrow\n",
+                encoding="utf-8",
+            )
+            cfg = AgendaConfig.from_merged({"language": "en"})
+            cfg.templates_dir = tmp_path
+
+            out = render_agenda(
+                cfg=cfg,
+                target_date=date(2026, 6, 17),
+                template_name="base",
+                events=[],
+                tasks=[],
+            )
+
+            self.assertIn("- [ ] Review inbox\n- [ ] Plan tomorrow", out)
+            self.assertNotIn("- [ ] Review inbox\n\n- [ ] Plan tomorrow", out)
+
     def test_addition_appears_and_removal_strips(self) -> None:
         from hugin_agenda.agenda import GtdTaskBlock, render_agenda
         from hugin_agenda.config import AgendaConfig

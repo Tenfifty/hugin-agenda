@@ -235,9 +235,9 @@ def find_agenda_insertion_index(lines: list[str]) -> int:
     """Return index of the marker blank line in the template.
 
     The marker is the first blank line whose preceding non-blank line is a
-    list item (``- ...``). Items are inserted at this index; the blank line
-    itself is preserved as a visual separator. Templates without a marker
-    fall back to appending at the end.
+    list item (``- ...``). Items are inserted at this index; the renderer
+    consumes the blank line so it acts as a marker only. Templates without a
+    marker fall back to appending at the end.
     """
     for idx, line in enumerate(lines):
         if line.strip():
@@ -426,12 +426,15 @@ def render_agenda(
     insertion_idx = find_agenda_insertion_index(lines)
     scheduled_tasks = schedule_tasks(cfg, target_date, events, tasks)
     items = build_agenda_items(events, scheduled_tasks)
+    tail_idx = insertion_idx
+    if insertion_idx < len(lines) and not lines[insertion_idx].strip():
+        tail_idx += 1
 
     output_lines = lines[:insertion_idx]
     if items:
         for item in items:
             output_lines.extend(item.lines)
-    output_lines.extend(lines[insertion_idx:])
+    output_lines.extend(lines[tail_idx:])
     output_lines = apply_removals(output_lines, removals or [])
     return "\n".join(output_lines) + "\n\n"
 

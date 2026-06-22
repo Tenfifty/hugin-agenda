@@ -255,8 +255,10 @@ to `agenda_<name>.md`). `--template <name>` overrides for a single run.
 Per-day variation is **not** done with multiple template files — use the
 `## Additions` / `## Removals` sections in your GTD file instead (see below).
 
-Each template should have an `## <date>` header (auto-rewritten) and may end
-with a `- [ ] Agenda 2` sentinel line above which scheduled items are inserted.
+Each template should have an `## <date>` header (auto-rewritten). To choose
+where scheduled items are inserted, put a blank marker line after a list item;
+the marker line is consumed in the rendered agenda. Templates without a marker
+append scheduled items at the end.
 
 ## GTD format
 
