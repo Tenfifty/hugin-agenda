@@ -319,23 +319,32 @@ def _set_status(sidecar: Path, status: str) -> None:
         sidecar.write_text(text, encoding="utf-8")
 
 
+def marker_needles(cfg: AgendaConfig, sidecar: Path) -> list[str]:
+    """Link prefixes that anchor a GTD line to this sidecar.
+
+    The line is written with the vault-relative path, but Obsidian rewrites it
+    to the bare file name when the sidecar moves (newLinkFormat "shortest").
+    Sidecar names carry a timestamp, so the bare name is unique too. Both the
+    bare link and the aliased form `[[target|Research]]` match.
+    """
+    targets = dict.fromkeys([wikilink_target(cfg, sidecar), sidecar.stem])
+    return [needle for target in targets for needle in (f"[[{target}]]", f"[[{target}|")]
+
+
 def swap_gtd_marker(cfg: AgendaConfig, sidecar: Path, status: str) -> None:
     """Replace the trailing marker on the GTD line anchored by this sidecar's
     wikilink. Goes through the obsidian CLI so an open buffer isn't clobbered;
     falls back to a direct write if Obsidian can't be reached."""
     marker = MARKERS.get(status, MARKERS[FAILED])
-    target = wikilink_target(cfg, sidecar)
+    needles = marker_needles(cfg, sidecar)
     rel_gtd = cfg.gtd_path.name if cfg.gtd_path else "gtd.md"
-    # Match both the bare link and the aliased form `[[target|Research]]`.
-    needle_exact = json.dumps(f"[[{target}]]")
-    needle_alias = json.dumps(f"[[{target}|")
     # If gtd.md is open, the editor buffer is the source of truth (a disk write
     # would be clobbered on autosave) — mutate it synchronously via the editor.
     # NB: `obsidian eval` runs code in a non-async function, so NO `await` is
     # allowed; the file-closed case is handled by a plain disk write in Python.
     js = (
         f"const p={json.dumps(rel_gtd)};"
-        f"const m=(l)=>l.includes({needle_exact})||l.includes({needle_alias});"
+        f"const N={json.dumps(needles)};const m=(l)=>N.some(n=>l.includes(n));"
         f"const re=/\\s*[{MARKER_CHARS}]\\uFE0F?\\s*$/u;const mk={json.dumps(' ' + marker)};"
         f"const L=app.workspace.getLeavesOfType('markdown').find(x=>x.view&&x.view.file&&x.view.file.path===p);"
         f"let r='closed';"
@@ -353,13 +362,12 @@ def swap_gtd_marker(cfg: AgendaConfig, sidecar: Path, status: str) -> None:
     except Exception as exc:  # noqa: BLE001 — fall back to disk
         print(f"obsidian CLI failed ({exc}); writing gtd.md directly", file=sys.stderr)
     # File not open (or CLI unavailable): safe to write disk directly.
-    _swap_marker_on_disk(cfg.gtd_path, target, marker)
+    _swap_marker_on_disk(cfg.gtd_path, needles, marker)
 
 
-def _swap_marker_on_disk(gtd_path: Path | None, target: str, marker: str) -> None:
+def _swap_marker_on_disk(gtd_path: Path | None, needles: list[str], marker: str) -> None:
     if not gtd_path or not gtd_path.exists():
         return
-    needles = (f"[[{target}]]", f"[[{target}|")
     out = []
     for line in gtd_path.read_text(encoding="utf-8").splitlines():
         if any(n in line for n in needles):
