@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import AgendaConfig, load_config
+from . import week as week_view
 from .overlays import (
     OverlayWarning,
     Removal,
@@ -95,6 +96,14 @@ def parse_args(cfg: AgendaConfig) -> argparse.Namespace:
         help=(
             "Suppress every named overlay section regardless of date rules; "
             "only the base template plus per-line additions/removals fire."
+        ),
+    )
+    parser.add_argument(
+        "--week",
+        action="store_true",
+        help=(
+            "Print a read-only overview of seven days starting at the target date "
+            "(tomorrow, or --today / --date): calendar, dated additions and routines."
         ),
     )
     parser.add_argument(
@@ -549,6 +558,39 @@ def render_agenda(
     return "\n".join(output_lines) + "\n\n"
 
 
+def render_week_overview(
+    cfg: AgendaConfig,
+    args: argparse.Namespace,
+    start: date,
+    template_name: str,
+) -> str:
+    path = template_path(template_name, cfg)
+    if not path.exists():
+        raise AgendaError(f"Template not found: {path}")
+    additions_heading, removals_heading = cfg.resolved_overlay_headings()
+    additions, removals, overlay_warnings = parse_overlays_with_warnings(
+        cfg.gtd_path, additions_heading, removals_heading
+    )
+    days = [start + timedelta(days=offset) for offset in range(week_view.WEEK_DAYS)]
+    events_by_day = {day: fetch_events(cfg, day, args.calendar) for day in days}
+    plans = week_view.plan_week(
+        start,
+        events_by_day,
+        path.read_text(encoding="utf-8").splitlines(),
+        additions,
+        removals,
+        args.override,
+        args.no_named_sections,
+    )
+    text = week_view.render_week(
+        plans,
+        week_view.overdue_additions(additions, start),
+        cfg.language,
+    )
+    lines = insert_overlay_warnings(text.splitlines(), overlay_warnings)
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     cfg = load_config()
     args = parse_args(cfg)
@@ -567,6 +609,14 @@ def main() -> int:
     else:
         target_date = today if args.today else today + timedelta(days=1)
     template_name = args.template or cfg.base_template
+
+    if args.week:
+        try:
+            sys.stdout.write(render_week_overview(cfg, args, target_date, template_name))
+        except (AgendaError, FileNotFoundError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     try:
         events = fetch_events(cfg, target_date, args.calendar)

@@ -129,7 +129,25 @@ hugin-agenda                       # agenda for tomorrow
 hugin-agenda --today               # agenda for today
 hugin-agenda --date 2026-05-01
 hugin-agenda --template kontor     # use agenda_kontor.md instead of agenda_base.md
+hugin-agenda --week                # read-only overview of the 7 days from tomorrow
+hugin-agenda --week --date 2026-10-12
 ```
+
+### Week overview
+
+`--week` prints what the coming seven days hold, for planning before the week
+starts. It reads the same calendar and overlay rules as the daily agenda, and
+writes nothing.
+
+- Calendar events per day, with booked hours (overlaps counted once) and
+  clashes marked.
+- Dated additions (a bare `` `YYYY-MM-DD` ``) on their day. Unchecked ones whose
+  date has passed are listed under an overdue heading at the top.
+- Routines (recurring additions, date ranges, named sections and the base
+  template's items, after removals) in a table with one column per day.
+  Routines that fire every day are summarised on one line instead.
+
+The weekday task lists under `## Week` are not included.
 
 ### Rotate the journal
 

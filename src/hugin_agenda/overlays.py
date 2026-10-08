@@ -60,6 +60,7 @@ class Addition:
     text: str
     rule: Rule
     section: str | None = None
+    checked: bool = False
 
 
 @dataclass
@@ -244,6 +245,7 @@ _REMOVAL_WITH_RULE_RE = re.compile(r"^\s*-\s+(.*?)\s*`([^`]+)`\s*$")
 _REMOVAL_PLAIN_RE = re.compile(r"^\s*-\s+(.+?)\s*$")
 _CHECKBOX_PREFIX_RE = re.compile(r"^\[[ xX]\]\s+")
 _CHECKBOX_ITEM_RE = re.compile(r"^\s*-\s+\[[ xX]\]\s+")
+_CHECKED_ITEM_RE = re.compile(r"^\s*-\s+\[[xX]\]\s+")
 _H3_RE = re.compile(r"^###\s+(.+?)(?:\s+`([^`]+)`)?\s*$")
 
 
@@ -398,7 +400,11 @@ def _parse_with_inline_rule(
         except OverlayError as exc:
             _warn(warnings, line_number, heading, f"invalid addition rule: {exc}", line)
             return None
-        return Addition(text=match.group(1).rstrip(), rule=rule)
+        return Addition(
+            text=match.group(1).rstrip(),
+            rule=rule,
+            checked=bool(_CHECKED_ITEM_RE.match(line)),
+        )
     match = _REMOVAL_WITH_RULE_RE.match(line)
     if not match:
         if _list_item(line):
@@ -444,7 +450,12 @@ def _parse_in_section(
                     line,
                 )
             return None
-        return Addition(text=f"- [ ] {match.group(1).strip()}", rule=rule, section=section)
+        return Addition(
+            text=f"- [ ] {match.group(1).strip()}",
+            rule=rule,
+            section=section,
+            checked=bool(_CHECKED_ITEM_RE.match(line)),
+        )
     match = _REMOVAL_PLAIN_RE.match(line)
     if not match:
         if _list_item(line):
