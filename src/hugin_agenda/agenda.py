@@ -129,9 +129,13 @@ def gws_environment(cfg: AgendaConfig) -> dict[str, str]:
     env = os.environ.copy()
     if cfg.gws_config_dir:
         env["GOOGLE_WORKSPACE_CLI_CONFIG_DIR"] = str(cfg.gws_config_dir)
-        env["GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE"] = str(
-            cfg.gws_config_dir / "credentials.json"
-        )
+    # Let gws use its encrypted store (credentials.enc) via the file keyring
+    # backend. Never point GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE at the
+    # plaintext credentials.json: gws prefers that file when the variable is
+    # set, and a stale refresh token in it produces a persistent invalid_grant
+    # that re-running `gws auth login` cannot fix (diagnosed 2026-06-27).
+    env.pop("GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE", None)
+    env.setdefault("GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND", "file")
     return env
 
 
