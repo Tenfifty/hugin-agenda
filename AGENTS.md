@@ -10,7 +10,7 @@ markdown headers, archive-dir naming) lives in the separate `hugin` repo
 ## What's here
 
 - `src/hugin_agenda/config.py` — `AgendaConfig` subclasses `hugin.SharedConfig`
-- `src/hugin_agenda/agenda.py` — calendar fetch, GTD parsing, scheduling, template rendering
+- `src/hugin_agenda/agenda.py` — calendar fetch (through `hugin.gws`, so `gws_bin` / `gws_config_dir` come from `hugin.yaml`), GTD parsing, scheduling, template rendering
 - `src/hugin_agenda/rotate_journal.py` — `hugin-agenda-rotate-journal` CLI; writes archives under `<archive_dirname>/`
 - `src/hugin_agenda/templates/` — packaged `agenda_base.md`
 

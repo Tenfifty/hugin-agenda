@@ -2,16 +2,13 @@
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import re
-import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from typing import Any
+
+from hugin import gws
 
 from .config import AgendaConfig, load_config
 from . import week as week_view
@@ -125,105 +122,19 @@ def template_path(template_name: str, cfg: AgendaConfig) -> Path:
     return cfg.templates_dir / f"agenda_{template_name}.md"
 
 
-def gws_environment(cfg: AgendaConfig) -> dict[str, str]:
-    env = os.environ.copy()
-    if cfg.gws_config_dir:
-        env["GOOGLE_WORKSPACE_CLI_CONFIG_DIR"] = str(cfg.gws_config_dir)
-    # Let gws use its encrypted store (credentials.enc) via the file keyring
-    # backend. Never point GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE at the
-    # plaintext credentials.json: gws prefers that file when the variable is
-    # set, and a stale refresh token in it produces a persistent invalid_grant
-    # that re-running `gws auth login` cannot fix (diagnosed 2026-06-27).
-    env.pop("GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE", None)
-    env.setdefault("GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND", "file")
-    return env
-
-
-def resolve_gws_bin(cfg: AgendaConfig) -> str:
-    preferred = os.environ.get("HUGIN_GWS_BIN") or cfg.gws_bin
-    preferred_path = Path(preferred).expanduser()
-    if preferred_path.is_absolute() and preferred_path.exists() and os.access(preferred_path, os.X_OK):
-        return str(preferred_path)
-    if shutil.which(preferred):
-        return preferred
-    raise FileNotFoundError(
-        f"gws binary {preferred!r} not found on PATH. "
-        "Install the Google Workspace CLI or set gws_bin / HUGIN_GWS_BIN."
-    )
-
-
-def run_gws(cfg: AgendaConfig, *args: str) -> dict[str, Any]:
-    gws_bin = resolve_gws_bin(cfg)
-    result = subprocess.run(
-        [gws_bin, *args],
-        capture_output=True,
-        text=True,
-        env=gws_environment(cfg),
-    )
-
-    payload: dict[str, Any] | None = None
-    stdout = result.stdout.strip()
-    if stdout:
-        try:
-            parsed = json.loads(stdout)
-            if isinstance(parsed, dict):
-                payload = parsed
-        except json.JSONDecodeError:
-            payload = None
-
-    if result.returncode != 0:
-        message = result.stderr.strip()
-        if payload and "error" in payload:
-            message = str(payload["error"].get("message", message))
-        raise AgendaError(message or f"{gws_bin} {' '.join(args)} failed")
-
-    if not payload:
-        raise AgendaError(f"Unexpected gws output for command: {' '.join(args)}")
-    if "error" in payload:
-        raise AgendaError(str(payload["error"].get("message", "gws returned an error")))
-    return payload
-
-
-def parse_event_datetime(raw: dict[str, Any]) -> tuple[datetime | None, bool]:
-    if "dateTime" in raw:
-        value = raw["dateTime"].replace("Z", "+00:00")
-        return datetime.fromisoformat(value).astimezone(local_tzinfo()), False
-    if "date" in raw:
-        value = datetime.fromisoformat(raw["date"]).replace(tzinfo=local_tzinfo())
-        return value, True
-    return None, False
-
-
 def fetch_events(cfg: AgendaConfig, target_date: date, calendar_id: str) -> list[CalendarEvent]:
     tz = local_tzinfo()
     day_start = datetime.combine(target_date, time(0, 0), tzinfo=tz)
     day_end = day_start + timedelta(days=1)
 
-    payload = run_gws(
-        cfg,
-        "calendar",
-        "events",
-        "list",
-        "--params",
-        json.dumps(
-            {
-                "calendarId": calendar_id,
-                "timeMin": day_start.isoformat(),
-                "timeMax": day_end.isoformat(),
-                "singleEvents": True,
-                "orderBy": "startTime",
-                "showDeleted": False,
-                "maxResults": 250,
-            }
-        ),
-    )
+    items = gws.list_events(cfg, calendar_id, day_start, day_end)
     events: list[CalendarEvent] = []
-    for item in payload.get("items", []):
+    for item in items:
         if item.get("status") == "cancelled":
             continue
 
-        start, start_all_day = parse_event_datetime(item.get("start", {}))
-        end, end_all_day = parse_event_datetime(item.get("end", {}))
+        start, start_all_day = gws.parse_event_time(item.get("start", {}))
+        end, end_all_day = gws.parse_event_time(item.get("end", {}))
         if not start or not end:
             continue
 
@@ -617,7 +528,7 @@ def main() -> int:
     if args.week:
         try:
             sys.stdout.write(render_week_overview(cfg, args, target_date, template_name))
-        except (AgendaError, FileNotFoundError) as exc:
+        except (AgendaError, gws.GwsError, FileNotFoundError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
         return 0
@@ -644,7 +555,7 @@ def main() -> int:
             removals=active_rems,
             overlay_warnings=overlay_warnings,
         )
-    except (AgendaError, FileNotFoundError) as exc:
+    except (AgendaError, gws.GwsError, FileNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
